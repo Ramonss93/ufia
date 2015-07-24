@@ -1,0 +1,276 @@
+# Using rasterEngine to efficiency apply predictions to rasters
+library("doParallel")
+library("e1071")
+library("randomForest")
+library("class")
+library("magrittr")
+library("snow")
+library("raster")
+library("rgdal")
+library("mlr")
+library("kernlab")
+library("irace")
+
+##################################################################################################
+#                            Functions
+##################################################################################################
+
+add_UFIA_classes <- function(x) {
+  x %<>% ratify()
+  rat <- levels(x)[[1]]
+  rat$landcover <- c('grass', 'impervious', 'soil', 'tree', 'water')
+  levels(x) <- rat
+  return(x)
+}
+
+UFIA_pal <- c(grass = "#FFFF99", impervious = "#F0027F", soil = "#FDC086", tree = "#7FC97F", water = "#386CB0")
+
+
+
+##################################################################################################
+#                            Load Image
+##################################################################################################
+# image_path <- "../PAN_SPOT/Img_wAdditionalFeatures/SPOT_PanSharp_subsubset_wAddedFeatures.tif"
+image_name <- "geomatica_SPOT_panshp"
+#image_name <- "SPOT_PanSharp_subset_wAddedFeatures"
+image_directory <- "../PAN_SPOT/"
+#directory <- "../PAN_SPOT/subset_images/Img_wAdditionalFeatures/"
+image_path <- paste0(image_directory,image_name,".tif")
+image <- brick(image_path)
+image
+
+ plotRGB(image,4,3,2,stretch = "lin")
+
+small_image_path <- "../PAN_SPOT/subset_images/sub3set.tif"
+small_image <- brick(small_image_path)
+names(small_image) <- names(image)
+plotRGB(small_image,4,3,2,stretch = "lin")
+##################################################################################################
+##################################################################################################
+
+
+
+##################################################################################################
+#                      Make the Dataframe for classification
+##################################################################################################
+
+#  There are two ways to do this.
+################################
+################################
+
+
+# 1) Load an ASCII file that was exported from ENVI that contains the band information
+#      for every classified pixel.  Need to make sure that this was done on the image with
+#      additional features added, if that's desired
+
+          # source("ConvertENVI_ROI_ASCII_toDF.R")
+          # InputASCIIPath <-
+          # OutputPath <-
+          # classified_roi_df <- ConvertEnviROI_toDataFrame(InputASCIIPath)
+                                        #
+
+          # write.csv(classified_roi_df, OutputPath)
+
+
+
+################################
+################################
+# 2) Load the shapefiles for each class,
+#       These would have been likely generated in ENVI and exported.
+#       They should have been drawn on top of the image we are classifying.
+
+# These shapefiles came from ENVI ROI,
+# they were drawn on top of the image we are classifying
+
+water <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_water", encoding = "ESRI Shapefile")
+grass <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_grass", encoding = "ESRI Shapefile")
+tree <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_tree", encoding = "ESRI Shapefile")
+soil <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_soil", encoding = "ESRI Shapefile")
+impervious <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_impervious", encoding = "ESRI Shapefile")
+
+
+water <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_water", encoding = "ESRI Shapefile")
+grass <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_grass", encoding = "ESRI Shapefile")
+tree <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_tree", encoding = "ESRI Shapefile")
+soil <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_soil", encoding = "ESRI Shapefile")
+impervious <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_impervious", encoding = "ESRI Shapefile")
+
+
+
+
+names(water) <- "water"
+names(grass) <- "grass"
+names(tree) <- "tree"
+names(soil) <- "soil"
+names(impervious) <- "impervious"
+
+list_classes <- list(water, grass, tree, soil, impervious)
+
+
+
+extract_bind_df_addclass <- function(x) {
+  w <- raster::extract(image,x)
+  w <- do.call("rbind",w)
+  w <- data.frame(w)
+  w$Class <- names(x)
+  return(w)
+}
+
+beginCluster()
+b <- lapply(list_classes, function(x) extract_bind_df_addclass(x))
+endCluster()
+
+classified_px <- do.call("rbind", b)
+
+classified_px$Class %<>% as.factor()
+##################################################################################################
+##################################################################################################
+
+
+
+
+lei_df <- df
+
+n
+
+
+##################################################################################################
+#                           Trying to use package MLR
+##################################################################################################
+
+classif.task <- makeClassifTask(id = "lei_panSpot", data = lei_df, target = "Class")
+classif.task
+
+classif.lrn <- makeLearner("classif.randomForest",predict.type="prob", fix.factors.prediction = T)
+classif.lrn
+
+mod <- train(classif.lrn, classif.task)
+mod
+
+getLearnerModel(mod)
+
+good.mod <- getLearnerModel(mod)
+
+i <- predict(small_image,good.mod)
+
+
+
+
+
+                                        # create multiplexed learner
+lrn <- makeModelMultiplexer(list(
+    makeLearner("classif.randomForest", ntree = 100),
+    makeLearner("classif.ksvm", kernel = "rbfdot")
+    ))
+
+                                        # wrap in tuning
+inner <- makeResampleDesc("CV", iters = 3L)
+ctrl <- makeTuneControlIrace(maxExperiments = 200L)
+tune.ps <- makeModelMultiplexerParamSet(lrn,
+                                        makeIntegerParam("nodesize", lower = 1L, upper = 20L),
+                                        makeNumericParam("sigma", lower = -10, upper = 10,
+                                                         trafo = function(x) 2^x)
+                                        )
+lrn <- makeTuneWrapper(lrn, inner, mmce, tune.ps, ctrl)
+
+task <- makeClassifTask(data = lei_df, target = "Class")
+outer <- makeResampleDesc("Subsample", iters = 1)
+res <- resample(lrn, task, outer, models = TRUE)
+res$models[[1]]
+res
+
+
+
+
+##################################################################################################
+#                            Create Predictive Models   This is the old way.  I should try with package mlr
+##################################################################################################
+
+
+
+df <- classified_px
+
+# Subsetting classified pixels
+sub <- sample(1:nrow(df),size =1000, replace = F)
+df <- df[sub,]
+
+# df_test <- classified_px[-sub,]
+# df_test <- df_test[sample(1:nrow(df_test), size = 1000),]
+
+# Generating Formula
+pred_cols <- names(image)
+class_formula <- paste0("Class ~ ",paste(pred_cols, collapse=" + "))
+class_formula
+
+
+###################################################
+#                            Random Forest
+###################################################
+
+mtry_range <- seq(1, length(pred_cols)/2, 4)
+nodesize_range <- c(5,10,30,50,100)
+ntree_range <- seq(100,600,50)
+
+rf_out <- tune(randomForest,
+               as.formula(class_formula),
+               data = df,
+               ranges = list(mtry = mtry_range,
+                             nodesize = nodesize_range,
+                             ntree = ntree_range))
+summary(rf_out)
+rf_best_mod <- rf_out$best.model
+rf_best_mod
+
+save(rf_best_mod, file =  "classificationModels/rf_best_mod")
+
+###################################################
+#                            SVM
+###################################################
+svm_out <- tune(svm,
+                as.formula(class_formula),
+                data = df,
+                ranges = list(kernel = c("radial","linear"),
+                              cost = c(10,90,100,300),
+                              gamma = c(0.001,0.01,0.1,1,10,100)))
+
+
+svm_out <- tune(svm,
+                as.formula(class_formula),
+                data = df,
+                ranges = list(kernel = c("radial","linear"),
+                              cost = c(0.1,1,5,10),
+                              gamma = c(0.001,0.01,0.1)))
+
+summary(svm_out)
+svm_best_mod <- svm_out$best.model
+svm_best_mod
+
+###################################################
+#                            KNN
+###################################################
+
+train <- as.matrix(df[,pred_cols])
+cl <- df[,"Class"]
+k_range <- seq(1,50,5)
+
+knn_out <- tune.knn(x=train,
+                    y = cl,
+                    k = k_range,
+                    tunecontrol = tune.control(sampling = "boot"))
+summary(knn_out)
+plot(knn_out)
+best_k <- knn_out$best.parameters
+best_k
+
+knn_calc <- function(x) knn(train, x, cl, k = best_k)
+
+
+
+
+
+
+lei_pred <- predict(svm_best_mod, lei_df)
+
+
+table(lei_pred,lei_df$Class)
+??accuracy

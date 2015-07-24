@@ -1,0 +1,7 @@
+
+PAN_SPOT/geomatica_SPOT_panshp_wAddedFeatures.tif: R/addLayersPANSPOT.R
+	cd R; R CMD BATCH addLayersPANSPOT.R
+
+
+
+
