@@ -181,58 +181,57 @@ registerDoSEQ()
 #######################################################################################
 
 
+r <- stack(raster_stack,NDVI,SAVI,ratio1,ratio2,ratio3,ratio4)
+writeRaster(r,paste0(directory_path,rasterFileName,"_wRatios.tif"),overwrite =T)
 
 
 
 
 
-####################    script to get GLCM   ##########################################
 
-####################
-##### INPUTS   to get GLCM
-##########################################
+## ####################    script to get GLCM   ##########################################
 
-list_layersforGLCM <- namedList(NIR,SAVI)
-window_sizes <- c(3,9) # specifies the size of the window to use in glcm
-
-
-##########################################
-all_dir <- list(c(0,1), c(1,1), c(1,0), c(1,-1))
-glcm_layers <- create_GLCM_layers_parallel(list_rasterlayers = list_layersforGLCM,
-                                           vec_window_sizes = window_sizes,
-                                           dir = all_dir,
-                                           cpus = cpus)
+## ####################
+## ##### INPUTS   to get GLCM
+## ##########################################
+## list_layersforGLCM <- namedList(NIR,SAVI)
+## window_sizes <- c(3,9) # specifies the size of the window to use in glcm
 
 
-glcm_stack_all <- do.call("stack",glcm_layers)
-
-vert_dir <- list(c(0,1))
-
-glcm_layers <- create_GLCM_layers_parallel(list_rasterlayers = list_layersforGLCM,
-                                           vec_window_sizes = c(3,9),
-                                           dir = vert_dir,
-                                           cpus = cpus)
-
-glcm_stack_vert <- do.call("stack",glcm_layers)
+## ##########################################
+## all_dir <- list(c(0,1), c(1,1), c(1,0), c(1,-1))
+## glcm_layers <- create_GLCM_layers_parallel(list_rasterlayers = list_layersforGLCM,
+##                                            vec_window_sizes = window_sizes,
+##                                            dir = all_dir,
+##                                            cpus = cpus)
 
 
-#######################################################################################
+## glcm_stack_all <- do.call("stack",glcm_layers)
+
+## vert_dir <- list(c(0,1))
+
+## glcm_layers <- create_GLCM_layers_parallel(list_rasterlayers = list_layersforGLCM,
+##                                            vec_window_sizes = c(3,9),
+##                                            dir = vert_dir,
+##                                            cpus = cpus)
+
+## glcm_stack_vert <- do.call("stack",glcm_layers)
 
 
+## #######################################################################################
 
 
 
-#######################################################################################
-
-#############  Combine all the layers created into one rasterbrick & export
-
-r <- stack(raster_stack,NDVI,SAVI,ratio1,ratio2,ratio3,ratio4,glcm_stack_all, glcm_stack_vert)
 
 
-writeRaster(r,paste0(directory_path,rasterFileName,"_wAddedFeatures.tif"),overwrite =T)
+## #######################################################################################
+
+## #############  Combine all the layers created into one rasterbrick & export
 
 
-#######################################################################################
+## r_texture <- stack(glcm_stack_all, glcm_stack_vert)
+## writeRaster(r_texture, paste0(directory_path,rasterFileName,"_wTexture.tif"),overwrite=T)
+## #######################################################################################
 
 
 
