@@ -130,21 +130,12 @@ names(l_tree) <- "tree"
 names(l_soil) <- "soil"
 names(l_impervious) <- "impervious"
 
-list_classes <- list(water, grass, tree, soil, impervious)
-
-
-
-extract_bind_df_addclass <- function(x) {
-  w <- raster::extract(image,x)
-  w <- do.call("rbind",w)
-  w <- data.frame(w)
-  w$Class <- names(x)
-  return(w)
-}
+list_classes <- list(l_water, l_grass, l_tree, l_soil, l_impervious)
 
 beginCluster()
 b <- lapply(list_classes, function(x) extract_bind_df_addclass(x))
 endCluster()
+
 
 classified_px <- do.call("rbind", b)
 
@@ -160,9 +151,22 @@ lei_df <- classified_px
 ##################################################################################################
 #                           Trying to use package MLR
 ##################################################################################################
+## Create Task, Tune Learners, Create learners, Get Model and Predict
+lei_classif.task <- makeClassifTask(id = "lei_panSpot", data = lei_df, target = "Class")
+lei_classif.task
 
-classif.task <- makeClassifTask(id = "lei_panSpot", data = lei_df, target = "Class")
-classif.task
+ctrl <- makeTuneControlIrace(maxExperiments = 300L)
+rdesc <- makeResampleDesc("CV",iters = 3L)
+
+rf.ps <- makeParamSet(
+    makeIntegerParam("nodesize", lower = 1L, upper = 20L),
+    makeIntegerParam("ntree", lower = 1L, upper = 3L,
+                      trafo = function(x) 10^x),
+    makeIntegerLearnerParam("mtry", lower = 1L, upper = 10L))
+
+rf.res <- tuneParams("classif.randomForest", lei_classif.task, rdesc, par.set = rf.ps, control = ctrl)
+
+
 
 rf.lrn <- makeLearner("classif.randomForest",predict.type="prob", fix.factors.prediction = T)
 rf.lrn
@@ -170,8 +174,14 @@ rf.lrn
 svm.lrn <- makeLearner("classif.ksvm", predict.type = "prob", fix.factors.prediction = T)
 svm.lrn
 
+knn.lrn <- makeLearner("classif.knn")
+
+knn.mod <- train(knn.lrn, classif.task)
+a <- getLearnerModel(knn.mod)
+
 rf.mod <- train(rf.lrn, classif.task)
 rf.mod
+getLearnerModel(rf.mod)
 
 svm.mod <- train(svm.lrn,classif.task)
 svm.mod
@@ -188,26 +198,68 @@ plot
 
                                         # create multiplexed learner
 lrn <- makeModelMultiplexer(list(
-    makeLearner("classif.randomForest", ntree = 100),
-    makeLearner("classif.ksvm", kernel = "rbfdot")
+    makeLearner("classif.randomForest"),
+    makeLearner("classif.ksvm")
     ))
 
                                         # wrap in tuning
 inner <- makeResampleDesc("CV", iters = 3L)
-ctrl <- makeTuneControlIrace(maxExperiments = 200L)
+ctrl <- makeTuneControlIrace(maxExperiments = 300)
 tune.ps <- makeModelMultiplexerParamSet(lrn,
                                         makeIntegerParam("nodesize", lower = 1L, upper = 20L),
+                                        makeIntegerParam("ntree", lower = 1L, upper = 3L,
+                                                         trafo = function(x) 10^x),
+                                        makeIntegerLearnerParam("mtry", lower = 1L, upper = 10L),
+                                        makeDiscreteParam("kernel", values = c("vanilladot", "rbfdot")),
                                         makeNumericParam("sigma", lower = -10, upper = 10,
-                                                         trafo = function(x) 2^x)
+                                                         trafo = function(x) 2^x,
+                                                         requires = quote(kernel == "rbfdot"))
                                         )
-lrn <- makeTuneWrapper(lrn, inner, mmce, tune.ps, ctrl)
 
+lrn <- makeTuneWrapper(lrn, inner, mmce, tune.ps, ctrl)
+lrn
 task <- makeClassifTask(data = lei_df, target = "Class")
-outer <- makeResampleDesc("Subsample", iters = 1)
+task
+outer <- makeResampleDesc("CV")
+
 res <- resample(lrn, task, outer, models = TRUE)
 res$models[[1]]
 res
 
+## This is a way that failed because it was too big for irace
+##                                         # create multiplexed learner
+## lrn <- makeModelMultiplexer(list(
+##     makeLearner("classif.randomForest"),
+##     makeLearner("classif.ksvm"),
+##     makeLearner("classif.knn")
+##     ))
+
+##                                         # wrap in tuning
+## inner <- makeResampleDesc("CV", iters = 3L)
+## ctrl <- makeTuneControlIrace(maxExperiments = 500)
+## tune.ps <- makeModelMultiplexerParamSet(lrn,
+##                                         makeIntegerParam("nodesize", lower = 1L, upper = 20L),
+##                                         makeIntegerParam("ntree", lower = 1L, upper = 3L,
+##                                                          trafo = function(x) 10^x),
+##                                         makeIntegerLearnerParam("mtry", lower = 1L, upper = 10L),
+##                                         makeDiscreteParam("kernel", values = c("vanilladot", "polydot", "rbfdot")),
+##                                         makeNumericParam("sigma", lower = -10, upper = 10,
+##                                                          trafo = function(x) 2^x,
+##                                                          requires = quote(kernel == "rbfdot")),
+##                                         makeIntegerParam("degree", lower = 2L, upper = 5L,
+##                                                          requires = quote(kernel == "polydot")),
+##                                         makeIntegerParam("k", lower = 1, upper = 100)
+##                                         )
+
+## lrn <- makeTuneWrapper(lrn, inner, mmce, tune.ps, ctrl)
+## lrn
+## task <- makeClassifTask(data = lei_df, target = "Class")
+## task
+## outer <- makeResampleDesc("CV")
+
+## res <- resample(lrn, task, outer, models = TRUE)
+## res$models[[1]]
+## res
 
 
 
