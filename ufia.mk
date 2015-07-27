@@ -10,5 +10,5 @@ PAN_SPOT/geomatica_SPOT_panshp_wAddedFeatures.tif: R/addLayersImage.R
 
 # Convert to dataframe
 
-PAN_SPOT/geomatica_SPOT_panshp_wAddedFeatures_df.Rdata: R/convertImageToDF.R
-	cd R; Rscript convertImageToDF.R PAN_SPOT/geomatica_SPOT_panshp_wAdditionalFeatures
+#PAN_SPOT/geomatica_SPOT_panshp_wAddedFeatures_df.Rdata: R/convertImageToDF.R
+#	cd R; Rscript convertImageToDF.R PAN_SPOT/geomatica_SPOT_panshp_wAdditionalFeatures
