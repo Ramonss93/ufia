@@ -30,21 +30,23 @@ UFIA_pal <- c(grass = "#FFFF99", impervious = "#F0027F", soil = "#FDC086", tree 
 ##################################################################################################
 #                            Load Image
 ##################################################################################################
-# image_path <- "../PAN_SPOT/Img_wAdditionalFeatures/SPOT_PanSharp_subsubset_wAddedFeatures.tif"
-image_name <- "geomatica_SPOT_panshp"
-#image_name <- "SPOT_PanSharp_subset_wAddedFeatures"
-image_directory <- "../PAN_SPOT/"
-#directory <- "../PAN_SPOT/subset_images/Img_wAdditionalFeatures/"
-image_path <- paste0(image_directory,image_name,".tif")
+
+image_name <- "geomatica_SPOT_panshp_wRatios"
+image_directory <- "PAN_SPOT"
+
+if (exists(commandArgs())) {
+    args <- commandArgs(trailingOnly = T)
+    image_directory <- args[1]
+    image_name <- args[2]
+}
+
+image_path <- paste0("../",image_directory,"/",image_name,".tif")
 image <- brick(image_path)
-image
 
-# plotRGB(image,4,3,2,stretch = "lin")
+plotRGB(image,4,3,2,stretch = "lin")
 
-small_image_path <- "../PAN_SPOT/subset_images/sub3set.tif"
-small_image <- brick(small_image_path)
-names(small_image) <- names(image)
-#plotRGB(small_image,4,3,2,stretch = "lin")
+
+
 ##################################################################################################
 ##################################################################################################
 
@@ -82,27 +84,51 @@ names(small_image) <- names(image)
 # These shapefiles came from ENVI ROI,
 # they were drawn on top of the image we are classifying
 
-water <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_water", encoding = "ESRI Shapefile")
-grass <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_grass", encoding = "ESRI Shapefile")
-tree <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_tree", encoding = "ESRI Shapefile")
-soil <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_soil", encoding = "ESRI Shapefile")
-impervious <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_impervious", encoding = "ESRI Shapefile")
 
+## Ted's ROIs for training data
+t_water <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_water", encoding = "ESRI Shapefile")
+t_grass <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_grass", encoding = "ESRI Shapefile")
+t_tree <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_tree", encoding = "ESRI Shapefile")
+t_soil <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_soil", encoding = "ESRI Shapefile")
+t_impervious <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_impervious", encoding = "ESRI Shapefile")
+names(t_water) <- "water"
+names(t_grass) <- "grass"
+names(t_tree) <- "tree"
+names(t_soil) <- "soil"
+names(t_impervious) <- "impervious"
 
-water <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_water", encoding = "ESRI Shapefile")
-grass <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_grass", encoding = "ESRI Shapefile")
-tree <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_tree", encoding = "ESRI Shapefile")
-soil <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_soil", encoding = "ESRI Shapefile")
-impervious <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_impervious", encoding = "ESRI Shapefile")
+list_classes <- list(t_water, t_grass, t_tree, t_soil, t_impervious)
 
+extract_bind_df_addclass <- function(x) {
+  w <- raster::extract(image,x)
+  w <- do.call("rbind",w)
+  w <- data.frame(w)
+  w$Class <- names(x)
+  return(w)
+}
 
+beginCluster()
+b <- lapply(list_classes, function(x) extract_bind_df_addclass(x))
+endCluster()
 
+classified_px <- do.call("rbind", b)
 
-names(water) <- "water"
-names(grass) <- "grass"
-names(tree) <- "tree"
-names(soil) <- "soil"
-names(impervious) <- "impervious"
+classified_px$Class %<>% as.factor()
+
+ted_df <- classified_px
+
+## Lei's ROIs for training data
+
+l_water <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_water", encoding = "ESRI Shapefile")
+l_grass <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_grass", encoding = "ESRI Shapefile")
+l_tree <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_tree", encoding = "ESRI Shapefile")
+l_soil <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_soil", encoding = "ESRI Shapefile")
+l_impervious <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_impervious", encoding = "ESRI Shapefile")
+names(l_water) <- "water"
+names(l_grass) <- "grass"
+names(l_tree) <- "tree"
+names(l_soil) <- "soil"
+names(l_impervious) <- "impervious"
 
 list_classes <- list(water, grass, tree, soil, impervious)
 
@@ -123,15 +149,12 @@ endCluster()
 classified_px <- do.call("rbind", b)
 
 classified_px$Class %<>% as.factor()
+
+lei_df <- classified_px
+
 ##################################################################################################
 ##################################################################################################
 
-
-
-
-lei_df <- df
-
-n
 
 
 ##################################################################################################
@@ -161,8 +184,6 @@ plot(i)
 
 
 plot
-
-
 
 
                                         # create multiplexed learner
