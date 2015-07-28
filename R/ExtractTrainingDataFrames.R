@@ -1,5 +1,6 @@
 # Extracting Training Data from the image
 library("magrittr")
+library("rgdal")
 library("raster")
 
 
@@ -22,7 +23,7 @@ extract_bind_df_addclass <- function(x) {
 image_directory <- "PAN_SPOT"
 image1_name <- "geomatica_SPOT_panshp_wRatios"
 image2_name <- "geomatica_SPOT_panshp_wRatios_wTexture"
-image3_name <- "geomatica_SPOT_panshp_wRatios_wTexture5x5"
+#image3_name <- "geomatica_SPOT_panshp_wRatios_wTexture5x5"
 
 
 
@@ -36,17 +37,20 @@ if (exists(commandArgs())) {
 
 image1_path <- paste0("../",image_directory,"/",image1_name,".tif")
 image2_path <- paste0("../",image_directory,"/",image2_name,".tif")
-image3_path <- paste0("../",image_directory,"/",image3_name,".tif")
+
+
 
 
 image1 <- brick(image1_path)
 image2 <- brick(image2_path)
-image3 <- brick(image3_path)
 
-image <- brick(image1, image2, image3)
 image <- stack(image1, image2)
-plotRGB(image,4,3,2,stretch = "lin")
 
+if (exists("image3_name")){
+    image3_path <- paste0("../",image_directory,"/",image3_name,".tif")
+    image_3 <- brick(image3_path)
+    image <- stack(image1, image2, image3)
+}
 
 
 ##################################################################################################

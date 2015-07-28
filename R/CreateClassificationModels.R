@@ -1,4 +1,3 @@
-# Using rasterEngine to efficiency apply predictions to rasters
 library("doParallel")
 library("e1071")
 library("randomForest")
@@ -26,25 +25,6 @@ add_UFIA_classes <- function(x) {
 UFIA_pal <- c(grass = "#FFFF99", impervious = "#F0027F", soil = "#FDC086", tree = "#7FC97F", water = "#386CB0")
 
 
-
-##################################################################################################
-#                      Read in the Dataframes for classification
-##################################################################################################
-
-t_df <- read.table(file = "../PAN_SPOT/ExtractedTrainingDataFrames/ted_roi_train_df.txt")
-
-## Remove Columns that have NA's (and are also probably not very useful
-detectNA <- function(x) any(is.na(x))
-a <- sapply(t_df, detectNA)
-t_df <- t_df[,!a]
-
-
-## Scale the columns of the data to have mean 0 and sd 1 for svm and knn classification
-t_scld_df <- as.data.frame(scale(t_df[,1:length(t_df)-1]))
-t_scld_df$Class <- t_df$Class
-
-
-
 ##################################################################################################
 #                           Trying to use package MLR
 ##################################################################################################
@@ -53,7 +33,7 @@ t_scld_df$Class <- t_df$Class
 ####
 ## Create TASKS
 ####
-ted_classif.task <- makeClassifTask(id = "ted_panSpot", data = t_scld_df, target = "Class")
+ted_classif.task <- makeClassifTask(id = "ted_panSpot", data = t_scld_sampe_df, target = "Class")
 ted_classif.task
 
 lei_classif.task <- makeClassifTask(id = "lei_panSpot", data = lei_df, target = "Class")
@@ -87,19 +67,23 @@ knn.ps <- makeParamSet(
 #### tune for ted and lei data, and rf and svm and knn
 
 lei.rf.res <- tuneParams("classif.randomForest", lei_classif.task, rdesc, par.set = rf.ps, control = ctrl)
-lei.svm.res <-
-lei.knn.res <- 
+lei.svm.res <- tuneParams("classif.ksvm", lei_classif.task, rdesc, par.set = svm.ps, control = ctrl)
+lei.knn.res <-  tuneParams("classif.knn", lei_classif.task, rdesc, par.set = knn.ps, control = ctrl)
 
-ted.rf.res <- 
-ted.svm.res <- 
-ted.knn.res <- 
+ted.rf.res <-  tuneParams("classif.randomForest", ted_classif.task, rdesc, par.set = rf.ps, control = ctrl)
+ted.svm.res <-  tuneParams("classif.ksvm", ted_classif.task, rdesc, par.set = svm.ps, control = ctrl)
+ted.knn.res <-  tuneParams("classif.knn", ted_classif.task, rdesc, par.set = knn.ps, control = ctrl)
+
+best_tuning_results_df <- rbind.all.columns(lei.rf.res, lei.svm.res, lei.knn.res, ted.rf.res, ted.svm.res, ted.knn.res)
+write.table(best_tuning_results_df, file="../PAN_SPOT/best_tuning_results.txt")
+
+best_tuning_results <- list(lei.rf.res, lei.svm.res, lei.knn.res, ted.rf.res, ted.svm.res, ted.knn.res)
+save(best_tuning_results, file = "../PAN_SPOT/best_tuning_results.Rdata")
 
 
+#### make Learners using the best parameters found by tuning.
 
 
-
-####
-##
 
 
 rf.lrn <- makeLearner("classif.randomForest",predict.type="prob", fix.factors.prediction = T)
