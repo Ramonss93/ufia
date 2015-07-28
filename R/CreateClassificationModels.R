@@ -3,7 +3,7 @@ library("doParallel")
 library("e1071")
 library("randomForest")
 library("class")
-library("magrittr")
+library("dplyr")
 library("snow")
 library("raster")
 library("rgdal")
@@ -28,123 +28,20 @@ UFIA_pal <- c(grass = "#FFFF99", impervious = "#F0027F", soil = "#FDC086", tree 
 
 
 ##################################################################################################
-#                            Load Image
+#                      Read in the Dataframes for classification
 ##################################################################################################
 
-image_name <- "geomatica_SPOT_panshp_wRatios"
-image_directory <- "PAN_SPOT"
+t_df <- read.table(file = "../PAN_SPOT/ExtractedTrainingDataFrames/ted_roi_train_df.txt")
 
-if (exists(commandArgs())) {
-    args <- commandArgs(trailingOnly = T)
-    image_directory <- args[1]
-    image_name <- args[2]
-}
-
-image_path <- paste0("../",image_directory,"/",image_name,".tif")
-image <- brick(image_path)
-
-plotRGB(image,4,3,2,stretch = "lin")
+## Remove Columns that have NA's (and are also probably not very useful
+detectNA <- function(x) any(is.na(x))
+a <- sapply(t_df, detectNA)
+t_df <- t_df[,!a]
 
 
-
-##################################################################################################
-##################################################################################################
-
-
-
-##################################################################################################
-#                      Make the Dataframe for classification
-##################################################################################################
-
-#  There are two ways to do this.
-################################
-################################
-
-
-# 1) Load an ASCII file that was exported from ENVI that contains the band information
-#      for every classified pixel.  Need to make sure that this was done on the image with
-#      additional features added, if that's desired
-
-          # source("ConvertENVI_ROI_ASCII_toDF.R")
-          # InputASCIIPath <-
-          # OutputPath <-
-          # classified_roi_df <- ConvertEnviROI_toDataFrame(InputASCIIPath)
-                                        #
-
-          # write.csv(classified_roi_df, OutputPath)
-
-
-
-################################
-################################
-# 2) Load the shapefiles for each class,
-#       These would have been likely generated in ENVI and exported.
-#       They should have been drawn on top of the image we are classifying.
-
-# These shapefiles came from ENVI ROI,
-# they were drawn on top of the image we are classifying
-
-
-## Ted's ROIs for training data
-t_water <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_water", encoding = "ESRI Shapefile")
-t_grass <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_grass", encoding = "ESRI Shapefile")
-t_tree <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_tree", encoding = "ESRI Shapefile")
-t_soil <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_soil", encoding = "ESRI Shapefile")
-t_impervious <- readOGR(dsn = "../PAN_SPOT/ROIs", layer = "pan_spot_subset_impervious", encoding = "ESRI Shapefile")
-names(t_water) <- "water"
-names(t_grass) <- "grass"
-names(t_tree) <- "tree"
-names(t_soil) <- "soil"
-names(t_impervious) <- "impervious"
-
-list_classes <- list(t_water, t_grass, t_tree, t_soil, t_impervious)
-
-extract_bind_df_addclass <- function(x) {
-  w <- raster::extract(image,x)
-  w <- do.call("rbind",w)
-  w <- data.frame(w)
-  w$Class <- names(x)
-  return(w)
-}
-
-beginCluster()
-b <- lapply(list_classes, function(x) extract_bind_df_addclass(x))
-endCluster()
-
-classified_px <- do.call("rbind", b)
-
-classified_px$Class %<>% as.factor()
-
-ted_df <- classified_px
-
-## Lei's ROIs for training data
-
-l_water <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_water", encoding = "ESRI Shapefile")
-l_grass <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_grass", encoding = "ESRI Shapefile")
-l_tree <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_tree", encoding = "ESRI Shapefile")
-l_soil <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_soil", encoding = "ESRI Shapefile")
-l_impervious <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_impervious", encoding = "ESRI Shapefile")
-names(l_water) <- "water"
-names(l_grass) <- "grass"
-names(l_tree) <- "tree"
-names(l_soil) <- "soil"
-names(l_impervious) <- "impervious"
-
-list_classes <- list(l_water, l_grass, l_tree, l_soil, l_impervious)
-
-beginCluster()
-b <- lapply(list_classes, function(x) extract_bind_df_addclass(x))
-endCluster()
-
-
-classified_px <- do.call("rbind", b)
-
-classified_px$Class %<>% as.factor()
-
-lei_df <- classified_px
-
-##################################################################################################
-##################################################################################################
+## Scale the columns of the data to have mean 0 and sd 1 for svm and knn classification
+t_scld_df <- as.data.frame(scale(t_df[,1:length(t_df)-1]))
+t_scld_df$Class <- t_df$Class
 
 
 
@@ -152,20 +49,57 @@ lei_df <- classified_px
 #                           Trying to use package MLR
 ##################################################################################################
 ## Create Task, Tune Learners, Create learners, Get Model and Predict
+
+####
+## Create TASKS
+####
+ted_classif.task <- makeClassifTask(id = "ted_panSpot", data = t_scld_df, target = "Class")
+ted_classif.task
+
 lei_classif.task <- makeClassifTask(id = "lei_panSpot", data = lei_df, target = "Class")
 lei_classif.task
+
+                                        # Tune Classifiers
+# Set parameters etc
+
 
 ctrl <- makeTuneControlIrace(maxExperiments = 300L)
 rdesc <- makeResampleDesc("CV",iters = 3L)
 
 rf.ps <- makeParamSet(
     makeIntegerParam("nodesize", lower = 1L, upper = 20L),
-    makeIntegerParam("ntree", lower = 1L, upper = 3L,
-                      trafo = function(x) 10^x),
+    makeIntegerParam("ntree", lower = 1L, upper = 10L,
+                      trafo = function(x) 2^x),
     makeIntegerLearnerParam("mtry", lower = 1L, upper = 10L))
 
-rf.res <- tuneParams("classif.randomForest", lei_classif.task, rdesc, par.set = rf.ps, control = ctrl)
+svm.ps <- makeParamSet(
+                    makeDiscreteParam("kernel", values = c("vanilladot", "polydot", "rbfdot")),
+                    makeNumericParam("sigma", lower = -10, upper = 10,
+                                     trafo = function(x) 2^x,
+                                     requires = quote(kernel == "rbfdot")),
+                    makeIntegerParam("degree", lower = 2L, upper = 5L,
+                                     requires = quote(kernel == "polydot")),
+                    makeIntegerParam("C", lower = 1L, upper = 200L))
 
+knn.ps <- makeParamSet(
+    makeIntegerParam("k",lower = 1L, upper = 30L))
+
+#### tune for ted and lei data, and rf and svm and knn
+
+lei.rf.res <- tuneParams("classif.randomForest", lei_classif.task, rdesc, par.set = rf.ps, control = ctrl)
+lei.svm.res <-
+lei.knn.res <- 
+
+ted.rf.res <- 
+ted.svm.res <- 
+ted.knn.res <- 
+
+
+
+
+
+####
+##
 
 
 rf.lrn <- makeLearner("classif.randomForest",predict.type="prob", fix.factors.prediction = T)
@@ -173,9 +107,9 @@ rf.lrn
 
 svm.lrn <- makeLearner("classif.ksvm", predict.type = "prob", fix.factors.prediction = T)
 svm.lrn
-
+svm.lrn$par.set
 knn.lrn <- makeLearner("classif.knn")
-
+knn.lrn$par.set
 knn.mod <- train(knn.lrn, classif.task)
 a <- getLearnerModel(knn.mod)
 
