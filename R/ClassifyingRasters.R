@@ -1,3 +1,32 @@
+library("doParallel")
+library("e1071")
+library("randomForest")
+library("class")
+library("magrittr")
+library("snow")
+library("raster")
+library("rgdal")
+library("mlr")
+library("kernlab")
+library("irace")
+
+
+##################################################################################################
+#                            Functions
+##################################################################################################
+
+
+add_UFIA_classes <- function(x) {
+  x %<>% ratify()
+  rat <- levels(x)[[1]]
+  rat$landcover <- c('grass', 'impervious', 'soil', 'tree', 'water')
+  levels(x) <- rat
+  return(x)
+}
+
+UFIA_pal <- c(grass = "#FFFF99", impervious = "#F0027F", soil = "#FDC086", tree = "#7FC97F", water = "#386CB0")
+
+
 
 ##################################################################################################
 ##################################################################################################
@@ -5,13 +34,39 @@
 ##################################################################################################
 ##################################################################################################
 
-image_directory <- "../PAN_SPOT/"
+image_directory <- "PAN_SPOT"
 
 
 ########################################
 ### Load Classification Models
 ########################################
-rf_best_mod <- load("../
+list_best_mods <- readRDS(paste0("../",image_directory,"/bestModels.Rdata"))
+list_best_mods
+
+
+
+######################################
+###   For each raster around a plot, and for each model, predict the class of the landcover
+######################################
+
+dir.create(paste0("../",image_directory,"/RastersAroundPlots/ClassifiedRasters"))
+
+directory_toputClassifiedRasters <- paste0("../",image_directory,"/RastersAroundPlots/ClassifiedRasters")
+
+for (i in seq_along(list_best_mods))
+
+    r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot","1",".tif"))
+    r1 <- r1[[-18]]
+names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels
+r2 <- raster::predict(object = r1, list_best_mods[[2]]$learner.model)
+plot(r2, col = UFIA_pal)
+
+r3 <- raster::predict(object = r1, list_best_mods[[4]]$learner.model)
+plot(r3, col = UFIA_pal)
+
+# For KNN I need to use the calc function
+
+
 
 
 

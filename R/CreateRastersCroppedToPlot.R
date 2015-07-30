@@ -58,3 +58,7 @@ for (i in seq_along(dia)){
     r <- crop(image,dia[[i]])
     writeRaster(r, file = paste0("../",image_directory,"/RastersAroundPlots/Plot",i,".tif"),overwrite = T)
 }
+
+
+
+           

@@ -1,0 +1,48 @@
+library(raster)
+
+##################################################################################################
+#                            Load Images and stack into one
+##################################################################################################
+image_directory <- "PAN_SPOT"
+image1_name <- "geomatica_SPOT_panshp_wRatios"
+image2_name <- "geomatica_SPOT_panshp_wRatios_wTexture"
+#image3_name <- "geomatica_SPOT_panshp_wRatios_wTexture5x5"
+
+
+
+if (exists(commandArgs())) {
+    args <- commandArgs(trailingOnly = T)
+    image_directory <- args[1]
+    image1_name <- args[2]
+    image2_name <- args[3]
+    image3_name <- args[4]
+}
+
+image1_path <- paste0("../",image_directory,"/",image1_name,".tif")
+image2_path <- paste0("../",image_directory,"/",image2_name,".tif")
+
+
+
+
+image1 <- brick(image1_path)
+image2 <- brick(image2_path)
+
+image <- stack(image1, image2)
+
+if (exists("image3_name")){
+    image3_path <- paste0("../",image_directory,"/",image3_name,".tif")
+    image_3 <- brick(image3_path)
+    image <- stack(image1, image2, image3)
+}
+
+writeRaster(image, paste0("../",image_directory,"/ratios_texture_stacked.tif"))
+
+image_scaled <- scale(image)
+
+writeRaster(image_scaled, paste0("../",image_directory,"/ratios_texture_stacked_scaled.tif"))
+
+          
+
+##################################################################################################
+##################################################################################################
+

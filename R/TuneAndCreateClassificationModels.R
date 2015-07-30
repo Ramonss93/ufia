@@ -22,18 +22,6 @@ namedList <- function(...) {
             setNames(L,nm)
     }
 
-rbind.all.columns <- function(x, y) {
-
-        x.diff <- setdiff(colnames(x), colnames(y))
-            y.diff <- setdiff(colnames(y), colnames(x))
-
-            x[, c(as.character(y.diff))] <- NA
-
-            y[, c(as.character(x.diff))] <- NA
-
-            return(rbind(x, y))
-    }
-
 
 
 ##################################################################################################
@@ -49,9 +37,6 @@ a <- sapply(t_df, detectNA)
 t_df <- t_df[,!a]
 
 
-## Scale the columns of the data to have mean 0 and sd 1 for svm and knn classification
-t_scld_df <- as.data.frame(scale(t_df[,1:length(t_df)-1]))
-t_scld_df$Class <- t_df$Class
 # Sample 6000 pizxels (try to reduce spatial autocorrelation and number of pixels)
 sub <- sample(x=1:nrow(t_scld_df), size = 6000)
 t_scld_samp_df <- t_scld_df[sub,]
@@ -65,9 +50,10 @@ l_df <- read.table(file = "../PAN_SPOT/ExtractedTrainingDataFrames/lei_roi_train
 detectNA <- function(x) any(is.na(x))
 a <- sapply(l_df, detectNA)
 l_df <- l_df[,!a]
+
 ## Scale the columns of the data to have mean 0 and sd 1 for svm and knn classification
-l_scld_df <- as.data.frame(scale(l_df[,1:length(l_df)-1]))
-l_scld_df$Class <- l_df$Class
+#l_scld_df <- as.data.frame(scale(l_df[,1:length(l_df)-1]))
+#l_scld_df$Class <- l_df$Class
 
 
 
@@ -80,10 +66,10 @@ l_scld_df$Class <- l_df$Class
 ####
 ## Create TASKS
 ####
-ted.classif.task <- makeClassifTask(id = "ted_panSpot", data = t_scld_samp_df, target = "Class")
+ted.classif.task <- makeClassifTask(id = "ted_panSpot", data = t_samp_df, target = "Class")
 ted.classif.task
 
-lei.classif.task <- makeClassifTask(id = "lei_panSpot", data = l_scld_df, target = "Class")
+lei.classif.task <- makeClassifTask(id = "lei_panSpot", data = l_df, target = "Class")
 lei.classif.task
 
                                         # Tune Classifiers
@@ -124,7 +110,14 @@ ted.knn.res <-  tuneParams("classif.knn", ted_classif.task, rdesc, par.set = knn
 
 
 #### Aggregate and save results
-best_tuning_results_df <- rbind.all.columns(lei.rf.res$opt.path, lei.svm.res$opt.path, lei.knn.res$opt.path, ted.rf.res$opt.path, ted.svm.res$opt.path, ted.knn.res$opt.path)
+best_tuning_results_df <- bind_rows(
+    as.data.frame(lei.rf.res$opt.path),
+    as.data.frame(lei.svm.res$opt.path),
+    as.data.frame(lei.knn.res$opt.path),
+    as.data.frame(ted.rf.res$opt.path),
+    as.data.frame(ted.svm.res$opt.path),
+    as.data.frame(ted.knn.res$opt.path))
+
 write.table(best_tuning_results_df, file="../PAN_SPOT/best_tuning_results.txt")
 
 best_tuning_results <- list(lei.rf.res, lei.svm.res, lei.knn.res, ted.rf.res, ted.svm.res, ted.knn.res)
@@ -172,6 +165,8 @@ ted.knn.mod <- train(ted.knn.lrn, ted.classif.task)
 #### Save Models
 
 models <- namedList(lei.rf.mod, lei.svm.mod, lei.knn.mod, ted.rf.mod, ted.svm.mod, ted.knn.mod)
-saveRDS(models, file = paste0("../",directory,"bestModels.Rdata")
+saveRDS(models, file = paste0("../",directory,"/bestModels.Rdata"))
 
+#### See how well Ted's predicts Lei's and how well Lei's predicts ted's
 
+#lei.rf.predted <- randomForest::predict(t_df, lei.rf.mod$learner.model)
