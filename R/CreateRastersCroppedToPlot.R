@@ -1,3 +1,7 @@
+library(raster)
+library(rgdal)
+library(rgeos)
+
 ## Read in the master image with all of it's layers
 image_directory <- "PAN_SPOT"
 image1_name <- "geomatica_SPOT_panshp_wRatios"
@@ -28,13 +32,29 @@ if (exists("image3_name")){
     image <- stack(image1, image2, image3)
 }
 
-
-
-
 ## Read in the plot centers shape file
+plot_centers <- readOGR(dsn = "../FieldData/PlotCenterShpFile", layer = "plotCenter")
+plot_centers <- spTransform(plot_centers,CRSobj = CRS("+proj=utm +zone=16 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"))
+
 
 ## Create polygon shapefile around plot centers...What should the radius be?
 
-## Create a directory for the cropped rasters
+rad <- 200
+# Make Diamond polygons around each plot
+dia <- list()
+for (i in seq_along(plot_centers)) {
+      dia[i] <- gBuffer(plot_centers[i,], width = rad,quadsegs = 1)
+  }
+#dia <-do.call(bind,dia)  Don't run this, but if want to combine into one spatialpolygon object do.
+
+## create a directory for the cropped rasters
+
+dir.create(paste0("../",image_directory,"/RastersAroundPlots")
+
 
 ## For every plot, crop the master image, and save the small raster in the directory
+
+for (i in seq_along(dia)){
+    r <- crop(image,dia[[i]])
+    writeRaster(r, file = paste0("../",image_directory,"/RastersAroundPlots/Plot",i,".tif"),overwrite = T)
+}
