@@ -1,7 +1,9 @@
+library("foreach")
 library("doParallel")
 library("e1071")
 library("randomForest")
 library("class")
+library("dplyr")
 library("magrittr")
 library("snow")
 library("raster")
@@ -17,7 +19,7 @@ library("irace")
 
 
 add_UFIA_classes <- function(x) {
-  x %<>% ratify()
+  x <- ratify(x)
   rat <- levels(x)[[1]]
   rat$landcover <- c('grass', 'impervious', 'soil', 'tree', 'water')
   levels(x) <- rat
@@ -53,17 +55,100 @@ dir.create(paste0("../",image_directory,"/RastersAroundPlots/ClassifiedRasters")
 
 directory_toputClassifiedRasters <- paste0("../",image_directory,"/RastersAroundPlots/ClassifiedRasters")
 
-for (i in seq_along(list_best_mods))
 
-    r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot","1",".tif"))
-    r1 <- r1[[-18]]
-names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels
-r2 <- raster::predict(object = r1, list_best_mods[[2]]$learner.model)
-plot(r2, col = UFIA_pal)
+
+#  Classifying Raster surrounding field Plots  RandomForest
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+for (i in c(1,4)) {   #  rf 
+    foreach (j = c(1,10,20,30,40,50,60,70,80,90), .packages = c("raster","randomForest")) %dopar% {  # on 10 plots
+         r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
+         r1 <- r1[[-18]]
+         names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels # assign names that the model was trained on.
+         r2 <- raster::predict(object = r1, list_best_mods[[i]]$learner.model)
+         r2 <- add_UFIA_classes(r2)
+         writeRaster(r2,filename = paste0(directory_toputClassifiedRasters,"/",attributes(list_best_mods)$names[i],"_Plot",j,".tif"),overwrite = T)
+     }
+ }
+
+r20 <- raster::predict(r1, list_best_mods[[1]]$learner.model)
+plot(r20)
+
+list_best_mods[[4]]
+
+
+#  Classifying Raster surrounding field Plots  SVM
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+for (i in c(2,5)) {   #  SVM
+    foreach (j = c(1,10,20,30,40,50,60,70,80,90), .packages = c("raster")) %dopar% {  # on 10 plots
+         r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
+         r1 <- r1[[-18]]
+         names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels # assign names that the model was trained on.
+         r2 <- raster::predict(object = r1, list_best_mods[[i]]$learner.model)
+         r2 <- add_UFIA_classes(r2)
+         writeRaster(r2,filename = paste0(directory_toputClassifiedRasters,"/",attributes(list_best_mods)$names[i],"_Plot",j,".tif"),overwrite = T)
+     }
+ }
+
+
+
+# Creating PNGs 
+j <- 10
+mod <- list_best_mods[[5]]
+r <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
+r <- r[[-18]]
+names(r) <- attributes(mod$learner.model@terms)$term.labels
+xy <- as.data.frame(r, xy = T)
+C <- predict(mod$learner.model, xy)
+df <- cbind(xy, C)
+str(C)
+ggplot(data = df, aes(x = x, y = y, fill = C)) + geom_raster()
+
+
+
+
+# Creating PNGs 
+xy <- as.data.frame(r, xy = T)
+C2 <- predict(mod, newdata =  xy)
+df <- cbind(xy, C2$data)
+str(df)
+
+table(C2$response, df$C)
+
+
+a <- df %>%
+    mutate(maxprob = pmax(prob.grass, prob.impervious, prob.soil, prob.tree, prob.water))
+str(a)
+str(df)
+ggplot(data = df, aes(x = x, y = y, fill = C)) + geom_raster()
+ggplot(data = a, aes(x = x, y = y, fill = response, alpha = maxprob)) + geom_raster()
+
+
+
+
+
+
+
+
+
+
+
+r5 <- stack("../PAN_SPOT/RastersAroundPlots/ClassifiedRasters/lei.svm.mod_Plot1.tif")
+r5
+
+plot(r5, col = UFIA_pal)
+
+
+
+
+
 
 r3 <- raster::predict(object = r1, list_best_mods[[4]]$learner.model)
+
 plot(r3, col = UFIA_pal)
 
+                         
 # For KNN I need to use the calc function
 
 
@@ -112,21 +197,6 @@ returnCluster()
 writeRaster(knn_raster, knn_filename,overwrite = T)
 
 
-
-
-
-
-##################################################################################################
-##################################################################################################
-#                            Plot Classified Images
-##################################################################################################
-##################################################################################################
-
-plot(rf_raster, col = UFIA_pal)
-
-plot(svm_raster, col = UFIA_pal)
-
-plot(knn_raster, col = UFIA_pal)
 
 
 

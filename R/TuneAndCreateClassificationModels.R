@@ -38,8 +38,8 @@ t_df <- t_df[,!a]
 
 
 # Sample 6000 pizxels (try to reduce spatial autocorrelation and number of pixels)
-sub <- sample(x=1:nrow(t_scld_df), size = 6000)
-t_scld_samp_df <- t_scld_df[sub,]
+sub <- sample(x=1:nrow(t_df), size = 6000)
+t_samp_df <- t_df[sub,]
 
 
 
@@ -169,4 +169,17 @@ saveRDS(models, file = paste0("../",directory,"/bestModels.Rdata"))
 
 #### See how well Ted's predicts Lei's and how well Lei's predicts ted's
 
-#lei.rf.predted <- randomForest::predict(t_df, lei.rf.mod$learner.model)
+lei.rf.predted <- predict(lei.rf.mod$learner.model, t_df)
+ted.rf.predlei <- predict(ted.rf.mod$learner.model, l_df)
+
+lei.svm.predted <- predict(lei.svm.mod$learner.model, t_df)
+ted.svm.predlei <- predict(ted.svm.mod$learner.model, l_df)
+
+classAgreement(table(lei.rf.predted, t_df$Class))
+classAgreement(table(ted.rf.predlei, l_df$Class))
+classAgreement(table(lei.svm.predted, t_df$Class))
+classAgreement(table(ted.svm.predlei, l_df$Class))
+
+
+table(ted.svm.predlei, l_df$Class)
+table(lei.svm.predted, t_df$Class)
