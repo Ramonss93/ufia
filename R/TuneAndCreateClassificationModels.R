@@ -69,6 +69,9 @@ l_df <- l_df[,!a]
 ted.classif.task <- makeClassifTask(id = "ted_panSpot", data = t_samp_df, target = "Class")
 ted.classif.task
 
+ted.full.classif.task <- makeClassifTask(id = "ted_panSpot", data = t_df, target = "Class")
+ted.full.classif.task
+
 lei.classif.task <- makeClassifTask(id = "lei_panSpot", data = l_df, target = "Class")
 lei.classif.task
 
@@ -157,15 +160,23 @@ lei.rf.mod <- train(lei.rf.lrn, lei.classif.task)
 lei.svm.mod <- train(lei.svm.lrn, lei.classif.task)
 lei.knn.mod <- train(lei.knn.lrn, lei.classif.task)
 
-ted.rf.mod <- train(ted.rf.lrn, ted.classif.task)
-ted.svm.mod <- train(ted.svm.lrn, ted.classif.task)
-ted.knn.mod <- train(ted.knn.lrn, ted.classif.task)
+ted.rf.mod <- train(ted.rf.lrn, ted.full.classif.task)
+ted.svm.mod <- train(ted.svm.lrn, ted.full.classif.task)
+ted.knn.mod <- train(ted.knn.lrn, ted.full.classif.task)
 
 
 #### Save Models
 
 models <- namedList(lei.rf.mod, lei.svm.mod, lei.knn.mod, ted.rf.mod, ted.svm.mod, ted.knn.mod)
 saveRDS(models, file = paste0("../",directory,"/bestModels.Rdata"))
+
+
+
+
+
+
+
+
 
 #### See how well Ted's predicts Lei's and how well Lei's predicts ted's
 

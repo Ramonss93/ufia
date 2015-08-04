@@ -84,6 +84,9 @@ rasterFileName <- args[1]
 directory_path <- paste0("../",args[2],"/")
 #rasterFileName <- "SPOT_PanSharp_subsubset"
 #directory_path <- "../PAN_SPOT/"
+directory_path <- "../NAIP/"
+rasterFileName <- "madison"
+
 raster_stack <- stack(paste0(directory_path,rasterFileName,".tif")) %>%
   setMinMax()
 # quartz()
@@ -111,6 +114,30 @@ cl <- makeCluster(spec = cpus, type = "PSOCK", methods = FALSE)
 # Register the cluster with foreach:
 registerDoParallel(cl)
 
+NDVI <-
+  rasterEngine(
+    # Match the variable name in the function to the raster:
+    image_w4bands = raster_stack,
+    # Assign the function:
+    fun=ndvi_nodrop,
+    args=list(red_bandnumber = red_bandnumber, nir_bandnumber = nir_bandnumber)
+  )
+NDVI <- NDVI[[1]]   # convert NDVI from "brick" to raster "layer"
+writeRaster(NDVI,paste0(directory_path,rasterFileName,"_NDVI.tif"),overwrite =T)
+
+
+SAVI <-
+  rasterEngine(
+    # Match the variable name in the function to the raster:
+    image_w4bands = raster_stack,
+    # Assign the function:
+    fun=savi_nodrop,
+    args=list(red_bandnumber = red_bandnumber, nir_bandnumber = nir_bandnumber, L = L)
+  )
+SAVI <- SAVI[[1]]  # convert SAVI from "brick" to raster "layer"
+writeRaster(SAVI,paste0(directory_path,rasterFileName,"_SAVI.tif"),overwrite =T)
+
+
 numerator_bandNumber<-1
 ratio1 <-
   rasterEngine(
@@ -122,6 +149,8 @@ ratio1 <-
   )
 names(ratio1) <- "ratio1"
 
+writeRaster(ratio1,paste0(directory_path,rasterFileName,"_wRatio1.tif"),overwrite =T)
+
 numerator_bandNumber<-2
 ratio2 <-
   rasterEngine(
@@ -132,6 +161,7 @@ ratio2 <-
     args=list(numerator_bandNumber = numerator_bandNumber)
   )
 names(ratio2) <- "ratio2"
+writeRaster(ratio2,paste0(directory_path,rasterFileName,"_wRatio2.tif"),overwrite =T)
 
 numerator_bandNumber<-3
 ratio3 <-
@@ -143,6 +173,7 @@ ratio3 <-
     args=list(numerator_bandNumber = numerator_bandNumber)
   )
 names(ratio3) <- "ratio3"
+writeRaster(ratio3,paste0(directory_path,rasterFileName,"_wRatio3.tif"),overwrite =T)
 
 numerator_bandNumber<-4
 ratio4 <-
@@ -154,32 +185,13 @@ ratio4 <-
     args=list(numerator_bandNumber = numerator_bandNumber)
   )
 names(ratio4) <- "ratio4"
-
-SAVI <-
-  rasterEngine(
-    # Match the variable name in the function to the raster:
-    image_w4bands = raster_stack,
-    # Assign the function:
-    fun=savi_nodrop,
-    args=list(red_bandnumber = red_bandnumber, nir_bandnumber = nir_bandnumber, L = L)
-  )
-SAVI <- SAVI[[1]]  # convert SAVI from "brick" to raster "layer"
-
-NDVI <-
-  rasterEngine(
-    # Match the variable name in the function to the raster:
-    image_w4bands = raster_stack,
-    # Assign the function:
-    fun=ndvi_nodrop,
-    args=list(red_bandnumber = red_bandnumber, nir_bandnumber = nir_bandnumber)
-  )
-NDVI <- NDVI[[1]]   # convert NDVI from "brick" to raster "layer"
+writeRaster(ratio4,paste0(directory_path,rasterFileName,"_wRatio4.tif"),overwrite =T)
 
 stopCluster(cl) # Stops the cluster
 registerDoSEQ()
 #######################################################################################
 
 
-r <- stack(raster_stack,NDVI,SAVI,ratio1,ratio2,ratio3,ratio4)
-writeRaster(r,paste0(directory_path,rasterFileName,"_wRatios.tif"),overwrite =T)
+#r <- stack(raster_stack,NDVI,SAVI,ratio1,ratio2,ratio3,ratio4)
+#writeRaster(r,paste0(directory_path,rasterFileName,"_wRatios.tif"),overwrite =T)
 

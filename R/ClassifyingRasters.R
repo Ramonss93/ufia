@@ -42,6 +42,9 @@ image_directory <- "PAN_SPOT"
 ########################################
 ### Load Classification Models
 ########################################
+list_best_mods_4bands <- readRDS(paste0("../",image_directory,"/bestModels4bands.Rdata"))
+list_best_mods_4bands
+
 list_best_mods <- readRDS(paste0("../",image_directory,"/bestModels.Rdata"))
 list_best_mods
 

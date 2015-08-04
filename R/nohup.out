@@ -1,0 +1,87 @@
+Fatal error: cannot create 'R_TempDir'
+Loading required package: methods
+Loading required package: sp
+Loading required package: parallel
+Loading required package: iterators
+Loading required package: foreach
+Loading required package: rgdal
+rgdal: version: 1.0-4, (SVN revision 548)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 1.10.0, released 2013/04/24
+ Path to GDAL shared files: /usr/share/gdal/1.10
+ Loaded PROJ.4 runtime: Rel. 4.8.0, 6 March 2012, [PJ_VERSION: 480]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.1-1 
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:raster’:
+
+    intersect, select, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Execution halted
+Loading required package: methods
+Loading required package: sp
+Loading required package: parallel
+Loading required package: iterators
+Loading required package: foreach
+Loading required package: rgdal
+rgdal: version: 1.0-4, (SVN revision 548)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 1.10.0, released 2013/04/24
+ Path to GDAL shared files: /usr/share/gdal/1.10
+ Loaded PROJ.4 runtime: Rel. 4.8.0, 6 March 2012, [PJ_VERSION: 480]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.1-1 
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:raster’:
+
+    intersect, select, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Warning messages:
+1: In .local(x, ...) : min value not known, use setMinMax
+2: In .local(x, ...) : max value not known, use setMinMax
+3: In .local(x, ...) : min value not known, use setMinMax
+Warning messages:
+1: In .local(x, ...) : min value not known, use setMinMax
+2: In .local(x, ...) : max value not known, use setMinMax
+3: In .local(x, ...) : min value not known, use setMinMax
+Warning messages:
+1: In .local(x, ...) : min value not known, use setMinMax
+2: In .local(x, ...) : max value not known, use setMinMax
+3: In .local(x, ...) : min value not known, use setMinMax
+Warning messages:
+1: In .local(x, ...) : min value not known, use setMinMax
+2: In .local(x, ...) : max value not known, use setMinMax
+3: In .local(x, ...) : min value not known, use setMinMax
+Warning messages:
+1: In .local(x, ...) : min value not known, use setMinMax
+2: In .local(x, ...) : max value not known, use setMinMax
+3: In .local(x, ...) : min value not known, use setMinMax
+Warning messages:
+1: In .local(x, ...) : min value not known, use setMinMax
+2: In .local(x, ...) : max value not known, use setMinMax
+3: In .local(x, ...) : min value not known, use setMinMax
+Error in rgdal::putRasterData(x@file@transient, vv, band = i, offset = off) : 
+  Failure during raster IO
+Calls: writeRaster ... .local -> writeValues -> writeValues -> <Anonymous> -> .Call
+Execution halted
