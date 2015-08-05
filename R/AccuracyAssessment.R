@@ -1,15 +1,23 @@
 # Image based accuracy assessment
-
+library(Hmisc)
 library(rgdal)
 library(plyr)
 library(dplyr)
 library(mlr)
+
                                         #Read in Robi's Shapefile
 
 accuracy_points <- readOGR(dsn = "../accuracy_points", layer = "accuracy_cover_2500")
 accuracy_points
 
 plot(accuracy_points)
+accuracy_points@data <- accuracy_points@data[,1:2]
+accuracy_points@data <- na.omit(accuracy_points@data)
+accuracy_points@data <- accuracy_points[accuracy_points@data$cover != NA ,]
+
+
+accuracy_points@data
+plot(accuracy_points[accuracy_points@data$cover == "water",])
 
 head(accuracy_points@data)
 summary(accuracy_points@data$cover)
@@ -67,6 +75,7 @@ str(accuracy.tsk)
 
 #lei.rf Accuracy
 lei.rf.pred <- predict(lei.rf.mod, newdata = a_df)
+
 lei.rf.acc <- sum(as.character(lei.rf.pred$data$truth) == as.character(lei.rf.pred$data$response))/accuracy.tsk$task.desc$size
 lei.rf.acc
 
@@ -76,8 +85,10 @@ lei.rf.acc
 
 #lei.svm prob accuracy
 lei.svm.pred <- predict(lei.svm.mod, newdata = a_df, type = "response")
+table(as.character(lei.svm.pred$data$truth), as.character(lei.svm.pred$data$response))
 lei.svm.prob.acc <- sum(as.character(lei.svm.pred$data$truth) == as.character(lei.svm.pred$data$response))/accuracy.tsk$task.desc$size
 lei.svm.prob.acc
+
 
 #lei.svm response accuracy
 lei.svm.pred2 <- predict(lei.svm.mod$learner.model, a_df)
@@ -87,25 +98,39 @@ lei.svm.resp.acc
 
 #lei.knn accuracy
 lei.knn.pred <- predict(lei.knn.mod, accuracy.tsk)
+lei.knn.acc <- sum(as.character(lei.knn.pred$data$truth) == as.character(lei.knn.pred$data$response))/accuracy.tsk$task.desc$size
+lei.knn.acc
+
+#ted.rf Accuracy
+ted.rf.pred <- predict(ted.rf.mod, accuracy.tsk)
+ted.rf.acc <- sum(as.character(ted.rf.pred$data$truth) == as.character(ted.rf.pred$data$response))/accuracy.tsk$task.desc$size
+ted.rf.acc
+
+#ted.svm prob accuracy
+ted.svm.pred <- predict(ted.svm.mod, newdata = a_df, type = "response")
+ted.svm.prob.acc <- sum(as.character(ted.svm.pred$data$truth) == as.character(ted.svm.pred$data$response))/accuracy.tsk$task.desc$size
+ted.svm.prob.acc
+
+#ted.svm response accuracy
+ted.svm.pred2 <- predict(ted.svm.mod$learner.model, a_df)
+table(a_df$Class, ted.svm.pred2)
+ted.svm.resp.acc <- sum(as.character(a_df$Class) == as.character(ted.svm.pred2))/accuracy.tsk$task.desc$size
+ted.svm.resp.acc
+
+
+#ted.knn accuracy
+ted.knn.pred <- predict(ted.knn.mod, accuracy.tsk)
+table(ted.knn.pred$data$truth, ted.knn.pred$data$response)
+ted.knn.acc <- sum(as.character(ted.knn.pred$data$truth) == as.character(ted.knn.pred$data$response))/accuracy.tsk$task.desc$size
+ted.knn.acc
+
+
+image_based_accuracies <- llist(lei.rf.acc, lei.svm.prob.acc, lei.svm.resp.acc, lei.knn.acc, ted.rf.acc, ted.svm.prob.acc, ted.svm.resp.acc, ted.knn.acc)
+
+saveRDS(image_based_accuracies, "../PAN_SPOT/pan_spot_img_accuracies.Rdata")
+readRDS("../PAN_SPOT/pan_spot_img_accuracies.Rdata")
 
 
 
-
-
-
-
-
-
-
-
-head(lei.svm.pred2)
-
-
-lei.knn.pred
-
-
-ted.rf.pred <- predict(
-ted.svm.pred <- predict(
-ted.knn.pred <- predict(
 
 

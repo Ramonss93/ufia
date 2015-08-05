@@ -1,3 +1,5 @@
+library("modeest")
+library("stringr")
 library("foreach")
 library("doParallel")
 library("e1071")
@@ -64,49 +66,151 @@ directory_toputClassifiedRasters <- paste0("../",image_directory,"/RastersAround
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 for (i in c(1,4)) {   #  rf 
-    foreach (j = c(1,10,20,30,40,50,60,70,80,90), .packages = c("raster","randomForest")) %dopar% {  # on 10 plots
+    foreach (j = 1:101, .packages = c("raster","randomForest")) %dopar% {  # on 101 plots
          r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
          r1 <- r1[[-18]]
          names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels # assign names that the model was trained on.
          r2 <- raster::predict(object = r1, list_best_mods[[i]]$learner.model)
-         r2 <- add_UFIA_classes(r2)
+         #r2 <- add_UFIA_classes(r2)
          writeRaster(r2,filename = paste0(directory_toputClassifiedRasters,"/",attributes(list_best_mods)$names[i],"_Plot",j,".tif"),overwrite = T)
      }
  }
-
-r20 <- raster::predict(r1, list_best_mods[[1]]$learner.model)
-plot(r20)
-
-list_best_mods[[4]]
 
 
 #  Classifying Raster surrounding field Plots  SVM
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 for (i in c(2,5)) {   #  SVM
-    foreach (j = c(1,10,20,30,40,50,60,70,80,90), .packages = c("raster")) %dopar% {  # on 10 plots
+    foreach (j = 1:101, .packages = c("raster")) %dopar% {  # on 101 plots
          r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
          r1 <- r1[[-18]]
          names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels # assign names that the model was trained on.
          r2 <- raster::predict(object = r1, list_best_mods[[i]]$learner.model)
-         r2 <- add_UFIA_classes(r2)
+#         r2 <- add_UFIA_classes(r2)
+         writeRaster(r2,filename = paste0(directory_toputClassifiedRasters,"/",attributes(list_best_mods)$names[i],"_Plot",j,".tif"),overwrite = T)
+     }
+ }
+
+#  Classifying Raster surrounding field Plots  KNN
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+for (i in c(3,6)) {   #  KNN
+    foreach (j = 1:101, .packages = c("raster", "mlr")) %dopar% {  # on 101 plots
+         r1 <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
+         r1 <- r1[[-18]]
+         names(r1) <- attributes(list_best_mods[[2]]$learner.model@terms)$term.labels # assign names that the model was trained on.
+         r1_df <- as.data.frame(r1)
+         r_pred <- predict(list_best_mods[[i]], newdata = r1_df)
+         r2 <- raster(r1)
+         r2[] <- r_pred$data$response
+         r2
          writeRaster(r2,filename = paste0(directory_toputClassifiedRasters,"/",attributes(list_best_mods)$names[i],"_Plot",j,".tif"),overwrite = T)
      }
  }
 
 
 
-# Creating PNGs 
+
+# Creating RF and SVM probability raster layers
+r <- stack("../PAN_SPOT/RastersAroundPlots/merged101plots.tif")
+plotRGB(r, 4,3,2, stretch = "lin")
+r <- stack("../PAN_SPOT/RastersAroundPlots/Plot1.tif")
+r <- r[[-18]]
+names(r) <- attributes(mod$learner.model@terms)$term.labels
+rdf <- as.data.frame(r, xy =T)
+a <- predict(list_best_mods[[1]], newdata = rdf)
+r_prob.tree <- raster(r)
+#r_prob.tree[] <- a$data$prob.tree
+#r_prob.grass <- raster(r)
+## r_prob.grass[] <- a$data$prob.grass
+## plot(r_prob.grass)
+
+rdf <- cbind(rdf,a)
+head(rdf)
+
+rdf <- rdf %>%
+    mutate(max.prob = pmax(prob.grass, prob.impervious, prob.soil, prob.tree))
+           
+plt <- ggplot(data = rdf, aes(x=x, y=y, fill = response, alpha = max.prob)) + geom_raster() + coord_equal() + scale_fill_manual(values = UFIA_pal)
+plt
+
+
+
+
+
+
+# Creating Plots
 j <- 10
 mod <- list_best_mods[[5]]
 r <- stack(paste0("../",image_directory,"/RastersAroundPlots/Plot",j,".tif"))
 r <- r[[-18]]
 names(r) <- attributes(mod$learner.model@terms)$term.labels
 xy <- as.data.frame(r, xy = T)
-C <- predict(mod$learner.model, xy)
-df <- cbind(xy, C)
+Class <- predict(mod$learner.model, xy)
+df <- cbind(xy, Class)
 str(C)
-ggplot(data = df, aes(x = x, y = y, fill = C)) + geom_raster()
+str(df)
+plt <- ggplot(data = r_df, aes(x = x, y = y, fill = Class)) + geom_raster() + ggtitle(title) + scale_fill_manual(values = UFIA_pal) + coord_equal()
+
+
+
+
+# Create PNGs and tif layers of just impervious and just tree at 10 plots.
+files <- list.files(path = paste0("../",image_directory,"/RastersAroundPlots/ClassifiedRasters"),full.names = T)
+files <- files[grep(pattern = "*_Plot[0-9]+.tif$", x = files)]
+files
+i <- 1
+for (i in 20:length(files)) {
+    r <- raster(files[i])
+    plot(r)
+    r_df <- as.data.frame(r, xy= T)
+    title <- names(r_df)[3]
+    names(r_df)[3] <- "Class"
+    plt <- ggplot(data = r_df, aes(x = x, y = y, fill = Class)) + geom_raster() + ggtitle(title) + scale_fill_manual(values = UFIA_pal) + coord_equal()
+    png_filename <- paste0(str_sub(files[i], start = 1, end = nchar(files[i])-4), ".png")
+    print(png_filename)
+    png(filename = png_filename, height = 600, width = 600)
+    plt
+    dev.off()
+                                        #separate tree cover
+    r_tree <- layerize(r)[[4]]
+    tree_filename <- paste0(str_sub(files[i], start = 1, end = nchar(files[i])-4), "_treeLayer.tif")
+
+    writeRaster(r_tree, filename = tree_filename, overwrite = T)
+                                        #separate impervious cover
+    r_impervious <- layerize(r)[[2]]
+    impervious_filename <- paste0(str_sub(files[i], start = 1, end = nchar(files[i])-4), "_imperviousLayer.tif")
+    writeRaster(r_impervious, filename = impervious_filename, overwrite = T)
+    plot(r_impervious)
+}
+
+
+            
+length(files)
+
+plot(layerize(r))[[2]]
+
+            str(r)
+
+
+
+
+head(r_df)
+
+r <- 
+plot(r)
+
+
+
+ted.svm.plt
+
+
+
+
+
+
+
+
 
 
 

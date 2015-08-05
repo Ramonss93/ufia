@@ -1,17 +1,39 @@
 library(mlr)
 library(kernlab)
+library(raster)
 
-set.seed(8)
+
+x1 <- rnorm(16)
+x2 <- rnorm(16, 3)
+
+r1 <- raster(ncol = 4, nrow = 4)
+r1[] <- x1
+
+r2 <- raster(ncol = 4, nrow = 4)
+r2[] <- x2
+
+s <- stack(r1,r2)
+
 x1 <- rnorm(10)
 x2 <- rnorm(10, 3)
-x3 <- rnorm(10, -20, 3)
-C <- sample(c("a","b","c"), 10, T)
-d <-  data.frame(x1, x2, x3, C)
+C <- sample(c("a","b","c"), 16, T)
+d <-  data.frame(x1, x2, C)
+d
 classif <- makeClassifTask(id = "example", data = d, target = "C")
-nd <- data.frame(x2,x1,x3)
+nd <- data.frame(x2,x1)
 
 lrn <- makeLearner("classif.ksvm", predict.type = "prob", fix.factors.prediction = T)
 t <- train(lrn, classif)
+t$learner.model
+
+raster::predict(s, t$learner.model)
+raster::predict(s, t)
+
+s_df <- as.data.frame(s)
+s_df
+predict(t, newdata = s_df)
+
+
 res1 <- predict(t, newdata = nd)
 res1
 

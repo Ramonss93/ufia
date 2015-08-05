@@ -69,6 +69,9 @@ l_df <- l_df[,!a]
 ted.classif.task <- makeClassifTask(id = "ted_panSpot", data = t_samp_df, target = "Class")
 ted.classif.task
 
+ted.full.classif.task <- makeClassifTask(id = "ted_panSpot", data = t_df, target = "Class")
+ted.full.classif.task
+
 lei.classif.task <- makeClassifTask(id = "lei_panSpot", data = l_df, target = "Class")
 lei.classif.task
 
@@ -157,9 +160,9 @@ lei.rf.mod <- train(lei.rf.lrn, lei.classif.task)
 lei.svm.mod <- train(lei.svm.lrn, lei.classif.task)
 lei.knn.mod <- train(lei.knn.lrn, lei.classif.task)
 
-ted.rf.mod <- train(ted.rf.lrn, ted.classif.task)
-ted.svm.mod <- train(ted.svm.lrn, ted.classif.task)
-ted.knn.mod <- train(ted.knn.lrn, ted.classif.task)
+ted.rf.mod <- train(ted.rf.lrn, ted.full.classif.task)
+ted.svm.mod <- train(ted.svm.lrn, ted.full.classif.task)
+ted.knn.mod <- train(ted.knn.lrn, ted.full.classif.task)
 
 
 #### Save Models
@@ -167,6 +170,27 @@ ted.knn.mod <- train(ted.knn.lrn, ted.classif.task)
 models <- namedList(lei.rf.mod, lei.svm.mod, lei.knn.mod, ted.rf.mod, ted.svm.mod, ted.knn.mod)
 saveRDS(models, file = paste0("../",directory,"/bestModels.Rdata"))
 
+
+
+
+
+
+
+
+
 #### See how well Ted's predicts Lei's and how well Lei's predicts ted's
 
-#lei.rf.predted <- randomForest::predict(t_df, lei.rf.mod$learner.model)
+lei.rf.predted <- predict(lei.rf.mod$learner.model, t_df)
+ted.rf.predlei <- predict(ted.rf.mod$learner.model, l_df)
+
+lei.svm.predted <- predict(lei.svm.mod$learner.model, t_df)
+ted.svm.predlei <- predict(ted.svm.mod$learner.model, l_df)
+
+classAgreement(table(lei.rf.predted, t_df$Class))
+classAgreement(table(ted.rf.predlei, l_df$Class))
+classAgreement(table(lei.svm.predted, t_df$Class))
+classAgreement(table(ted.svm.predlei, l_df$Class))
+
+
+table(ted.svm.predlei, l_df$Class)
+table(lei.svm.predted, t_df$Class)

@@ -1,0 +1,56 @@
+library(raster)
+library(modeest)
+library(stringr)
+# This function overrides the convenience behavior of sample when x has a length of 1
+sampleWithoutSurprises <- function(x) {
+      if (length(x) <= 1) {
+              return(x)
+          } else {
+                  return(sample(x,1))
+              }
+  }
+
+# find the mode of a vector, if there is more than one mode, randomly select one of them
+my_random_mode <- function(x,na.rm=F) sampleWithoutSurprises(mfv(x))
+
+image_directory <-"PAN_SPOT"
+    
+#read in segmentation layer
+seg <- raster(x = "../PAN_SPOT/Segmentation/spot_object_labels_map_test1824.tif")
+plot(seg)
+
+classifications <- list.files(path = paste0("../",image_directory,"/RastersAroundPlots/ClassifiedRasters"),full.names = T)
+classifications <- classifications[grep(pattern = "*_Plot[0-9]+.tif$", x = classifications)]
+classifications
+i <- 30
+for (i in 1:length(classifications)) {
+
+addSegmentationToClassification <- function(class_filename, segmentation_filename) {
+    r <- raster(class_filename)
+    seg <- raster(segmentation_filename)
+    seg_crp <- crop(seg, r)
+    a <- zonal(x = r, z = seg_crp, fun = my_random_mode)
+    rc <- reclassify(seg_crp, a)
+    writeRaster(rc, filename = paste0(str_sub(class_filename, 1, nchar(class_filename)-4), "_Segmentation.tif"), overwrite = T)
+}
+
+addSegmentationToClassification("../PAN_SPOT/RastersAroundPlots/ClassifiedRasters/ted.svm.mod_Plot10.tif", "../PAN_SPOT/Segmentation/spot_object_labels_map_test1824.tif")
+
+addSegmentationToClassification("../NAIP/RastersAroundPlots/ClassifiedRasters/knn_Plot10.tif", "../NAIP/Segmentation/madisonseg_object_labels_map_m0.tif")
+
+
+                    create <- combinedClassSegRasters <- overPlots <- function(class <- raster,seg <- raster,polygon) {
+                          # Crop the classification raster to the extent of seg_raster
+                          class <- raster <- crop(class <- raster,extent(seg <- raster))
+
+                            ### Combine Unmixing Layer with Segmentation
+                              a <- zonal(x = class <- raster, z = seg <- raster)
+                              m <- cbind(
+                                        from = a[,1]-0.1,
+                                        to = a[,1]+0.1,
+                                        becomes = a[,2]
+                                      )
+                              class <- seg <- raster <- reclassify(x = seg <- raster, rcl = m)
+                            return(class <- seg <- raster)
+                      }
+                    

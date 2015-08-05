@@ -1,0 +1,14 @@
+library(raster)
+
+#read in segmentation layer
+
+
+
+seg <- raster(x = "../PAN_SPOT/Segmentation/spot_object_labels_map_test1824.tif")
+plot(seg)
+
+classifications <- 
+
+for (i in 1:length(classifications)) {
+    r <- raster(classifications[i]
+    seg_crp <- crop(seg, 

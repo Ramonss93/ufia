@@ -1,0 +1,77 @@
+library(mlr)
+library(dplyr)
+library(magrittr)
+library(rgdal)
+library(raster)
+
+## Functions
+
+extract_bind_df_addclass <- function(x) {
+  w <- raster::extract(image,x)
+  w <- do.call("rbind",w)
+  w <- data.frame(w)
+  w$Class <- names(x)
+  return(w)
+}
+
+
+# Read in NAIP images
+
+naip <- stack("../NAIP/madison.tif")
+ndvi <- stack("../NAIP/madison_NDVI.tif")
+savi <- stack("../NAIP/madison_SAVI.tif")
+r1 <- stack("../NAIP/madison_wRatio1.tif")
+r2 <- stack("../NAIP/madison_wRatio2.tif")
+r3 <- stack("../NAIP/madison_wRatio3.tif")
+
+
+
+NAIP <- stack(naip, ndvi, savi, r1, r2, r3)
+image <- NAIP
+
+# Read in ROI shapefiles for training classifier
+l_water <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_water", encoding = "ESRI Shapefile")
+l_grass <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_grass", encoding = "ESRI Shapefile")
+l_tree <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_tree", encoding = "ESRI Shapefile")
+l_soil <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_soil", encoding = "ESRI Shapefile")
+l_impervious <- readOGR(dsn = "../PAN_SPOT/ROIs/lei", layer = "pan_spot_lei_impervious", encoding = "ESRI Shapefile")
+names(l_water) <- "water"
+names(l_grass) <- "grass"
+names(l_tree) <- "tree"
+names(l_soil) <- "soil"
+names(l_impervious) <- "impervious"
+
+list_classes <- list(l_water, l_grass, l_tree, l_soil, l_impervious)
+
+beginCluster()
+b <- lapply(list_classes, function(x) extract_bind_df_addclass(x))
+endCluster()
+
+
+classified_px <- do.call("rbind", b)
+
+classified_px$Class %<>% as.factor()
+
+lei_df <- classified_px
+lei_df <- na.omit(lei_df)
+write.table(lei_df, paste0("../","NAIP","/ExtractedTrainingDataFrames/lei_roi_train_df.txt"))
+
+
+
+# Make Classification Models
+
+d <- read.table(file = "../NAIP/ExtractedTrainingDataFrames/lei_roi_train_df.txt")
+head(d)
+levels(d$Class)
+## task
+tsk <- makeClassifTask(id = "naip", data = d, target = "Class")
+tsk
+
+## Quick Tune
+
+## learners
+rf.lrn <- makeLearner(cl = "classif.randomForest", predict.type = "prob")
+rf.lrn
+
+
+
